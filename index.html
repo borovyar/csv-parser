@@ -2,25 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>CSV Splitter</title>
+  <title>CSV Split & Sort in Files</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <style>
     body { font-family: sans-serif; padding: 20px; }
-    table, th, td { border: 1px solid #ccc; border-collapse: collapse; padding: 5px; }
     input, button { margin: 5px 0; padding: 5px; }
   </style>
 </head>
 <body>
-  <h2>Split CSV File</h2>
+  <h2>Split CSV & Sort Each File by Email Domain</h2>
 
   <input type="file" id="csvFile" accept=".csv" />
   <br>
   <label for="splitCount">Number of output files:</label>
   <input type="number" id="splitCount" min="1" value="2" />
   <br>
-  <button onclick="processCSV()">Split and Download</button>
+  <button onclick="processCSV()">Process</button>
 
   <script>
+    function getDomain(email) {
+      const parts = email.split('@');
+      return parts.length === 2 ? parts[1].toLowerCase() : '';
+    }
+
     function processCSV() {
       const fileInput = document.getElementById('csvFile');
       const k = parseInt(document.getElementById('splitCount').value);
@@ -36,20 +40,28 @@
         skipEmptyLines: true,
         complete: function (results) {
           const [header, ...rows] = results.data;
+          const validRows = rows.filter(row => row.length >= 4); // ensure we have all fields
+
           const outputFiles = Array.from({ length: k }, () => []);
 
-          // Process each row (skipping header)
-          rows.forEach((row, index) => {
+          // Distribute rows round-robin into output files
+          validRows.forEach((row, index) => {
             const [name, title, lastName, email] = row;
             const outputRow = [title, lastName, email];
-            const targetFile = index % k;
-            outputFiles[targetFile].push(outputRow);
+            const fileIndex = index % k;
+            outputFiles[fileIndex].push(outputRow);
           });
 
-          // Create and download files
+          // Sort each file's rows by email domain before saving
           outputFiles.forEach((rows, i) => {
+            rows.sort((a, b) => {
+              const domainA = getDomain(a[2]); // a[2] is email
+              const domainB = getDomain(b[2]);
+              return domainA.localeCompare(domainB);
+            });
+
             const csvContent = [
-              ['Title', 'Last Name', 'Email'], // header
+              ['Title', 'Last Name', 'Email'],
               ...rows
             ].map(e => e.join(',')).join('\n');
 
@@ -69,4 +81,3 @@
   </script>
 </body>
 </html>
-
